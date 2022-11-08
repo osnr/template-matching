@@ -1,11 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <Accelerate/Accelerate.h>
 
-void fail(const char* s) {
-    fprintf(stderr, "fail: %s", s);
-    exit(1);
-}
-
 image_t imageNewInShapeOf(image_t im) {
     return (image_t) {
             .width = im.width,
@@ -14,32 +9,11 @@ image_t imageNewInShapeOf(image_t im) {
     };
 }
 
-void imagePrint(const char* name, const image_t im) {
-    printf("%s [%dx%d]:\n", name, im.width, im.height);
-    int x0 = 0; int x1 = im.width;
-    int y0 = 0; int y1 = im.height;
-    for (int y = y0; y < y0 + 5; y++) {
-        for (int x = x0; x < x0 + 5; x++) {
-            printf("%05.02f(%d)\t", im.data[y*im.width+x], x);
-        }
-        printf("...\t");
-        for (int x = x1 - 5; x < x1; x++) {
-            printf("%05.02f(%d)\t", im.data[y*im.width+x], x);
-        }
-        printf("\n");
-    }
-    printf("...\n");
-    for (int y = y1 - 5; y < y1; y++) {
-        for (int x = x0; x < x0 + 100; x++) {
-            printf("%05.02f(%d)\t", im.data[y*im.width+x], x);
-        }
-        printf("...\t");
-        for (int x = x1 - 5; x < x1; x++) {
-            printf("%05.02f(%d)\t", im.data[y*im.width+x], x);
-        }
-        printf("\n");
-    }
-    printf("\n");
+void imageAddScalarInPlace(image_t im, const float scalar) {
+    vDSP_vsadd(im.data, 1, &scalar, im.data, 1, im.width * im.height);
+}
+void imageDivideScalarInPlace(image_t im, const float scalar) {
+    vDSP_vsdiv(im.data, 1, &scalar, im.data, 1, im.width * im.height);
 }
 
 float imageMean(const image_t im) {
@@ -50,49 +24,6 @@ float imageMean(const image_t im) {
 float imageSumOfSquares(const image_t im) {
     float ret;
     vDSP_svesq(im.data, 1, &ret, im.width * im.height);
-    return ret;
-}
-
-void imageAddScalarInPlace(image_t im, const float scalar) {
-    vDSP_vsadd(im.data, 1, &scalar, im.data, 1, im.width * im.height);
-}
-void imageMultiplyScalarInPlace(image_t im, const float scalar) {
-    vDSP_vsmul(im.data, 1, &scalar, im.data, 1, im.width * im.height);
-}
-void imageDivideScalarInPlace(image_t im, const float scalar) {
-    vDSP_vsdiv(im.data, 1, &scalar, im.data, 1, im.width * im.height);
-}
-image_t imageDivideScalar(image_t im, const float scalar) {
-    image_t ret = imageNewInShapeOf(im);
-    memcpy(ret.data, im.data, ret.width * ret.height * sizeof(float));
-    imageDivideScalarInPlace(ret, scalar);
-    return ret;
-}
-
-void imageSubtractImageInPlace(image_t im, const image_t subtrahend) {
-    vDSP_vsub(subtrahend.data, 1, im.data, 1, im.data, 1, im.width * im.height);
-}
-void imageDivideImageInPlace(image_t im, const image_t divisor) {
-    if (divisor.width != im.width || divisor.height != im.height) {
-        fail("border mismatch");
-    }
-    vDSP_vdiv(divisor.data, 1, im.data, 1, im.data, 1, im.width * im.height);
-}
-
-image_t imageSquare(const image_t im) {
-    image_t ret = imageNewInShapeOf(im);
-    for (int y = 0; y < im.height; y++) {
-        for (int x = 0; x < im.width; x++) {
-            int i = y * im.width + x;
-            ret.data[i] = im.data[i] * im.data[i];
-        }
-    }
-    return ret;
-}
-image_t imageSqrt(const image_t im) {
-    int n = im.width * im.height;
-    image_t ret = imageNewInShapeOf(im);
-    vvsqrtf(ret.data, im.data, &n);
     return ret;
 }
 
@@ -153,6 +84,7 @@ image_t fftconvolve(const image_t f, const image_t g) {
         .data = (float *) calloc(width * height, sizeof(float))
     };
     vDSP_mmov(FG.realp, ret.data, width, height, fwidth, width);
+
     imageDivideScalarInPlace(ret, fwidth * fheight); // ifft2 normalization
     return ret;
 }
@@ -193,7 +125,7 @@ image_t normxcorr2(image_t templ, image_t image) {
     }
 
     // image[np.where(image < 0)] = 0
-    // template = np.sum(np.square(template))    
+    // template = np.sum(np.square(template))
     // out = out / np.sqrt(image * template)
     float templateSum = imageSumOfSquares(templ);
     for (int y = 0; y < outi.height; y++) {
@@ -204,7 +136,7 @@ image_t normxcorr2(image_t templ, image_t image) {
                 + s_(x - templ.width, y - templ.height);
 
             double energy = s2_(x, y)
-                - s2_(x - templ.width, y) 
+                - s2_(x - templ.width, y)
                 - s2_(x, y - templ.height)
                 + s2_(x - templ.width, y - templ.height);
 
@@ -223,4 +155,26 @@ image_t normxcorr2(image_t templ, image_t image) {
 
     // return out
     return outi;
+}
+
+image_t toImage(uint32_t *data32, int rows, int cols, int bytesPerRow, int downscale) {
+    image_t ret = (image_t) {
+        .width = cols/downscale,
+        .height = rows/downscale,
+        .data = (float *) calloc(cols/downscale * rows/downscale, sizeof(float))
+    };
+    // downsample and accumulate in ret
+    uint8_t *data = (uint8_t *) data32;
+    for (int y = 0; y < rows; y++) {
+        for (int x = 0; x < cols; x++) {
+            int i = (y * bytesPerRow) + x*4;
+            uint8 r = data[i];
+            uint8 g = data[i + 1];
+            uint8 b = data[i + 2];
+            int reti = (y/downscale)*ret.width + x/downscale;
+            ret.data[reti] += (r/255.0)*0.3 + (g/255.0)*0.58 + (b/255.0)*0.11;
+        }
+    }
+    imageDivideScalarInPlace(ret, downscale * downscale);
+    return ret;
 }
