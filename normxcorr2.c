@@ -1,5 +1,6 @@
-#import <Foundation/Foundation.h>
 #import <Accelerate/Accelerate.h>
+
+#include "normxcorr2.h"
 
 image_t imageNewInShapeOf(image_t im) {
     return (image_t) {
@@ -155,26 +156,4 @@ image_t normxcorr2(image_t templ, image_t image) {
 
     // return out
     return outi;
-}
-
-image_t toImage(uint32_t *data32, int rows, int cols, int bytesPerRow, int downscale) {
-    image_t ret = (image_t) {
-        .width = cols/downscale,
-        .height = rows/downscale,
-        .data = (float *) calloc(cols/downscale * rows/downscale, sizeof(float))
-    };
-    // downsample and accumulate in ret
-    uint8_t *data = (uint8_t *) data32;
-    for (int y = 0; y < rows; y++) {
-        for (int x = 0; x < cols; x++) {
-            int i = (y * bytesPerRow) + x*4;
-            uint8 r = data[i];
-            uint8 g = data[i + 1];
-            uint8 b = data[i + 2];
-            int reti = (y/downscale)*ret.width + x/downscale;
-            ret.data[reti] += (r/255.0)*0.3 + (g/255.0)*0.58 + (b/255.0)*0.11;
-        }
-    }
-    imageDivideScalarInPlace(ret, downscale * downscale);
-    return ret;
 }

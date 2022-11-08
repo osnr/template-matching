@@ -1,2 +1,2 @@
-main: main.c normxcorr2.c
-	cc -framework Accelerate -O2 -g -o $@ $<
+main: main.c normxcorr2.c vendor/lodepng.c
+	cc -framework Accelerate -Ivendor/ -O2 -g -o $@ $^

@@ -1,64 +1,42 @@
 #include "normxcorr2.h"
 
-static const float MATCH_SCALE = 0.5f;
+#include <stdlib.h>
+#include "lodepng.h"
 
-image_t toImage(cv::Mat matOrig) {
-    cv::Mat mat;
-    cv::resize(matOrig, mat, cv::Size(), MATCH_SCALE, MATCH_SCALE);
-    
+void imageDivideScalarInPlace(image_t im, const float scalar);
+image_t rgbaToImage(uint32_t *rgba32, unsigned rows, unsigned cols, unsigned bytesPerRow, int downscale) {
     image_t ret = (image_t) {
-        .width = mat.cols,
-        .height = mat.rows,
-        .data = (float *) malloc(mat.cols * mat.rows * sizeof(float))
+        .width = cols/downscale,
+        .height = rows/downscale,
+        .data = (float *) calloc(cols/downscale * rows/downscale, sizeof(float))
     };
-    for (int y = 0; y < ret.height; y++) {
-        for (int x = 0; x < ret.width; x++) {
-            int i = ((y * ret.width) + x) * 3;
-            uint8 r = mat.data[i];
-            uint8 g = mat.data[i + 1];
-            uint8 b = mat.data[i + 2];
-            ret.data[y * ret.width + x] = (r/255.0)*0.3 + (g/255.0)*0.58 + (b/255.0)*0.11;
+    // downsample and accumulate in ret
+    uint8_t *rgba = (uint8_t *) rgba32;
+    for (int y = 0; y < rows; y++) {
+        for (int x = 0; x < cols; x++) {
+            int i = (y * bytesPerRow) + x*4;
+            uint8_t r = rgba[i];
+            uint8_t g = rgba[i + 1];
+            uint8_t b = rgba[i + 2];
+            int reti = (y/downscale)*ret.width + x/downscale;
+            ret.data[reti] += (r/255.0)*0.3 + (g/255.0)*0.58 + (b/255.0)*0.11;
         }
     }
+    imageDivideScalarInPlace(ret, downscale * downscale);
     return ret;
 }
-
-// int main() {
-//     float inputData[] = {
-//         1, 2, 3,
-//         4, 5, 6,
-//         7, 8, 9
-//     };
-//     image_t input = (image_t) { .data = inputData, .width = 3, .height = 3 };
-//     float kernelData[] = {
-//         -1, -2, -1,
-//         0, 0, 0,
-//         1, 2, 1
-//     };
-//     image_t kernel = (image_t) { .data = kernelData, .width = 3, .height = 3 };
-
-//     image_t output = fftconvolve(input, kernel);
-//     imagePrint("output", output);
-// }
-
-/* void hit(cv::Mat& orig, image_t templ, int x, int y) { */
-/*     cv::Point origin((x - templ.width)*(1/MATCH_SCALE), (y - templ.height)*(1/MATCH_SCALE)); */
-/*     cv::Point to((x - templ.width + templ.width)*(1/MATCH_SCALE), (y - templ.height + templ.height)*(1/MATCH_SCALE)); */
-/*     cv::rectangle(orig, origin, to, cv::Scalar(255, 0, 255)); */
-/* } */
+image_t pngFileToImage(const char *filename) {
+    uint8_t *rgba; unsigned rows; unsigned cols;
+    if (lodepng_decode32_file(&rgba, &cols, &rows, filename)) { exit(1); }
+    return rgbaToImage((uint32_t *)rgba, rows, cols, cols*4, 2);
+}
 
 int main() {
-    image_t templ = toImage(cv::imread("template-traffic-lights.png"));
-    image_t image = toImage(cv::imread("screen.png"));
+    image_t templ = pngFileToImage("template-traffic-lights.png");
+    image_t image = pngFileToImage("screen.png");
 
-    cv::TickMeter tm;
-    tm.start();
     image_t result = normxcorr2(templ, image);
-    tm.stop();
-    std::cout << "Total time: " << tm.getTimeSec() << std::endl;
 
-    cv::Mat orig = cv::imread("screen.png");
-    
     if (0) { // max-value strategy
         int maxX, maxY;
         float maxValue = -10000.0f;
@@ -71,7 +49,7 @@ int main() {
                 }
             }
         }
-        printf("maxValue (%d, %d) = %f\n", maxX, maxY, maxValue);
+        /* printf("maxValue (%d, %d) = %f\n", maxX, maxY, maxValue); */
     }
     // imageShow("result", result);
 
@@ -81,16 +59,13 @@ int main() {
             for (int x = 0; x < result.width; x++) {
                 if (result.data[y * result.width + x] > 0.98) {
                     hits++;
-                    hit(orig, templ, x, y);
+                    /* hit(image, templ, x, y); */
                 }
             }
         }
 
-        std::cout << "hits: " << hits << std::endl;
+        /* std::cout << "hits: " << hits << std::endl; */
     }
-
-    cv::imshow("orig", orig);
-    while (cv::waitKey(0) != 27) {}
 
     return 0;
 }
