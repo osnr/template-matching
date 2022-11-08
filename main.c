@@ -32,41 +32,31 @@ image_t pngFileToImage(const char *filename) {
     return rgbaToImage((uint32_t *)rgba, rows, cols, cols*4, 2);
 }
 
-int main() {
-    image_t templ = pngFileToImage("examples/template-traffic-lights.png");
-    image_t image = pngFileToImage("examples/screen.png");
+int main(int argc, char* argv[]) {
+    image_t templ, image;
+    if (argc == 3) {
+        templ = pngFileToImage(argv[1]);
+        image = pngFileToImage(argv[2]);
+    } else if (argc == 1) {
+        templ = pngFileToImage("examples/template-traffic-lights.png");
+        image = pngFileToImage("examples/screen.png");
+    } else {
+        fprintf(stderr, "Usage: %s TEMPLATE IMAGE\n", argv[0]);
+        exit(1);
+    }
 
     image_t result = normxcorr2(templ, image);
 
-    if (0) { // max-value strategy
-        int maxX, maxY;
-        float maxValue = -10000.0f;
-        for (int y = 0; y < result.height; y++) {
-            for (int x = 0; x < result.width; x++) {
-                if (result.data[y * result.width + x] > maxValue) {
-                    maxX = x;
-                    maxY = y;
-                    maxValue = result.data[y * result.width + x];
-                }
+    int hits = 0;
+    for (int y = 0; y < result.height; y++) {
+        for (int x = 0; x < result.width; x++) {
+            if (result.data[y * result.width + x] > 0.98) {
+                hits++;
+                /* hit(image, templ, x, y); */
             }
         }
-        /* printf("maxValue (%d, %d) = %f\n", maxX, maxY, maxValue); */
     }
-    // imageShow("result", result);
-
-    if (1) { // threshold strategy
-        int hits = 0;
-        for (int y = 0; y < result.height; y++) {
-            for (int x = 0; x < result.width; x++) {
-                if (result.data[y * result.width + x] > 0.98) {
-                    hits++;
-                    /* hit(image, templ, x, y); */
-                }
-            }
-        }
-
-        printf("hits: %d\n", hits);
-    }
+    printf("hits: %d\n", hits);
 
     return 0;
 }
