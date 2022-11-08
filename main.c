@@ -1,6 +1,7 @@
 #include "normxcorr2.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include "lodepng.h"
 
 void imageDivideScalarInPlace(image_t im, const float scalar);
@@ -32,8 +33,8 @@ image_t pngFileToImage(const char *filename) {
 }
 
 int main() {
-    image_t templ = pngFileToImage("template-traffic-lights.png");
-    image_t image = pngFileToImage("screen.png");
+    image_t templ = pngFileToImage("examples/template-traffic-lights.png");
+    image_t image = pngFileToImage("examples/screen.png");
 
     image_t result = normxcorr2(templ, image);
 
@@ -64,7 +65,7 @@ int main() {
             }
         }
 
-        /* std::cout << "hits: " << hits << std::endl; */
+        printf("hits: %d\n", hits);
     }
 
     return 0;
