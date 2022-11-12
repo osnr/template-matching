@@ -90,6 +90,7 @@ image_t fftconvolve(const image_t f, const image_t g) {
     return ret;
 }
 
+
 #define s_(x, y) (((x) < 0 || (y) < 0 || (x >= image.width) || (y >= image.height)) ? 0 : s[((y)*image.width) + (x)])
 #define s2_(x, y) (((x) < 0 || (y) < 0 || (x >= image.width) || (y >= image.height)) ? 0 : s2[((y)*image.width) + (x)])
 
@@ -156,4 +157,41 @@ image_t normxcorr2(image_t templ, image_t image) {
 
     // return out
     return outi;
+}
+
+image_t normxcorr2_slow(image_t templ, image_t image) {
+    float templMean = imageMean(templ);
+
+    image_t result;
+    result.width = image.width + templ.width - 1;
+    result.height = image.height + templ.height - 1;
+    result.data = (float *)calloc(result.width * result.height, sizeof(float));
+
+    for (int v = 0; v < result.height; v++) {
+        for (int u = 0; u < result.width; u++) {
+            float mean = 0; // mean of image(x, y) in the region under the template
+            for (int y = v; (y - v) < templ.height; y++) {
+                for (int x = u; (x - u) < templ.width; x++) {
+                    mean += image.data[y * image.width + x];
+                }
+            }
+            mean /= templ.width * templ.height;
+
+            float num = 0;
+            float denomLeft = 0, denomRight = 0;
+            for (int y = v; (y - v) < templ.height; y++) {
+                for (int x = u; (x - u) < templ.width; x++) {
+                    num += (image.data[y * image.width + x] - mean) *
+                        (templ.data[(y - v) * templ.width + (x - u)] - templMean);
+                    denomLeft += (image.data[y * image.width + x] - mean) *
+                        (image.data[y * image.width + x] - mean);
+                    denomRight += (templ.data[(y - v) * templ.width + (x - u)] - templMean) *
+                        (templ.data[(y - v) * templ.width + (x - u)] - templMean);
+                }
+            }
+            
+            result.data[v * result.width + u] = num / sqrt(denomLeft * denomRight);
+        }
+    }
+    return result;
 }

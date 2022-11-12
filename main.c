@@ -73,9 +73,21 @@ int main(int argc, char* argv[]) {
     image = pngFileToImage(imageFilename, DOWNSCALE);
 
     // time matching:
-    image_t result = normxcorr2(templ, image);
-
-    imageToPngFile(result, "result.png");
+    image_t result;
+    {
+        result = normxcorr2_slow(templ, image);
+        printf("image %dx%d, templ %dx%d -> result %dx%d\n",
+               image.width, image.height, templ.width, templ.height,
+               result.width, result.height);
+        imageToPngFile(result, "result_slow.png");
+    }
+    {
+        result = normxcorr2(templ, image);
+        printf("image %dx%d, templ %dx%d -> result %dx%d\n",
+               image.width, image.height, templ.width, templ.height,
+               result.width, result.height);
+        imageToPngFile(result, "result.png");
+    }
 
     // report results:
     uint32_t* orig; unsigned w; unsigned h;

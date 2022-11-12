@@ -8,5 +8,6 @@ typedef struct image {
 } image_t;
 
 image_t normxcorr2(image_t templ, image_t image);
+image_t normxcorr2_slow(image_t templ, image_t image);
 
 #endif
