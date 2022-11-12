@@ -190,7 +190,7 @@ image_t normxcorr2_slow(image_t templ, image_t image) {
                 }
             }
             
-            result.data[v * result.width + u] = num / sqrt(denomLeft * denomRight);
+            result.data[(v + templ.height) * result.width + (u + templ.width)] = num / sqrt(denomLeft * denomRight);
         }
     }
     return result;
