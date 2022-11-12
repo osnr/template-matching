@@ -31,8 +31,19 @@ image_t pngFileToImage(const char *filename, int downscale) {
     if (lodepng_decode32_file(&rgba, &cols, &rows, filename)) { exit(1); }
     return rgbaToImage((uint32_t *)rgba, rows, cols, cols * 4, downscale);
 }
+void imageToPngFile(image_t image, const char *filename) {
+    uint8_t data8[image.width * image.height];
+    for (int y = 0; y < image.height; y++) {
+        for (int x = 0; x < image.width; x++) {
+            data8[y * image.width + x] = image.data[y * image.width + x] * 255;
+        }
+    }
+    lodepng_encode_file(filename, data8, image.width, image.height,
+                        LCT_GREY, 8);
+}
 
 void hit(uint32_t *orig, unsigned w, int x0, int y0, int templWidth, int templHeight) {
+    printf("hit at (%d, %d)\n", x0, y0);
     for (int y = 0; y < templHeight; y++) {
         orig[(y0 + y) * w + x0 + 0] = 0xFF0000FF; // left edge
         orig[(y0 + y) * w + x0 + templWidth] = 0xFF0000FF; // right edge
@@ -61,7 +72,10 @@ int main(int argc, char* argv[]) {
     templ = pngFileToImage(templFilename, DOWNSCALE);
     image = pngFileToImage(imageFilename, DOWNSCALE);
 
+    // time matching:
     image_t result = normxcorr2(templ, image);
+
+    imageToPngFile(result, "result.png");
 
     // report results:
     uint32_t* orig; unsigned w; unsigned h;
@@ -78,7 +92,7 @@ int main(int argc, char* argv[]) {
         }
     }
     printf("hits: %d\n", hits);
-    lodepng_encode32_file("result.png", (unsigned char *)orig, w, h);
+    lodepng_encode32_file("hits.png", (unsigned char *)orig, w, h);
 
     return 0;
 }
