@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include "lodepng.h"
 
 void imageDivideScalarInPlace(image_t im, const float scalar);
@@ -75,19 +76,18 @@ int main(int argc, char* argv[]) {
     // time matching:
     image_t result;
     {
-        result = normxcorr2_slow(templ, image);
-        printf("image %dx%d, templ %dx%d -> result %dx%d\n",
+        clock_t begin = clock();
+
+        result = NORMXCORR2(templ, image);
+
+        clock_t end = clock();
+        double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+        printf("image %dx%d, templ %dx%d -> result %dx%d in %f sec\n",
                image.width, image.height, templ.width, templ.height,
-               result.width, result.height);
-        imageToPngFile(result, "result_slow.png");
+               result.width, result.height,
+               time_spent);
     }
-    {
-        result = normxcorr2(templ, image);
-        printf("image %dx%d, templ %dx%d -> result %dx%d\n",
-               image.width, image.height, templ.width, templ.height,
-               result.width, result.height);
-        imageToPngFile(result, "result.png");
-    }
+    imageToPngFile(result, "result.png");
 
     // report results:
     uint32_t* orig; unsigned w; unsigned h;
