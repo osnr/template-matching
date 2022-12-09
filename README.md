@@ -26,20 +26,52 @@ hits: 1
 
 ## sources and notes
 
-Based on a melange of stuff:
+Based on a mix of stuff (Googling `normxcorr2` is a good place to
+start, that seems to be a nice well-defined shorthand name that means
+the same function when people use it):
+
+- [Fast Normalized
+  Cross-Correlation](http://scribblethink.org/Work/nvisionInterface/nip.html)
+  Lewis 1995: this is really all you technically need, but the other
+  sources are helpful to reinforce understanding and explain stuff in
+  different ways
+
+- [Template Matching using Fast Normalized Cross
+  Correlation](https://isas.iar.kit.edu/pdf/SPIE01_BriechleHanebeck_CrossCorr.pdf)
+  Briechle and Hanebeck 2001: almost nobody seems to actually use the
+  technique in this paper but they cite it for its summary of Lewis
+  1995, as far as I can tell
 
 - [Sabrewarrior/normxcorr2-python](https://github.com/Sabrewarrior/normxcorr2-python):
   implementation of `normxcorr2` using scipy and numpy
 
-- [Matlab normxcorr2 doc](https://www.mathworks.com/help/images/ref/normxcorr2.html)
+- [Matlab normxcorr2
+  doc](https://www.mathworks.com/help/images/ref/normxcorr2.html)
 
-- OpenCV impl. I had to read this a few times
+- [Octave implementation](https://sourceforge.net/p/octave/image/ci/e9c18bff13be86a0d067969c2a3dcfc405edb0b2/tree/inst/normxcorr2.m)
 
-- corr thing in C
+- https://github.com/scikit-image/scikit-image/blob/main/skimage/feature/template.py
 
-- etc
+- https://web.psi.edu/spc_wiki/imXcorr.py
 
-https://web.archive.org/web/20190301041758/https://www.cs.ubc.ca/research/deaton/remarks_ncc.html
+- [OpenCV implementation of
+  matchTemplate.](https://answers.opencv.org/question/83870/why-is-opencvs-template-matching-method-tm_sqdiff-so-fast/)
+  I found this pretty confusing and didn't understand it until reading
+  a lot of other sources; it's not straight-line code since it has a
+  lot of different modes and settings, and you get confused about what
+  part actually does the convolution vs. normalization if you don't
+  understand the algorithm well.
+
+- [Daniel Eaton remarks](https://web.archive.org/web/20190301041758/https://www.cs.ubc.ca/research/deaton/remarks_ncc.html) corr thing in C
+
+- [kiranpradeep/vDSPxcorr2d](https://github.com/kiranpradeep/vDSPxcorr2D)
+  kind of messy vDSP-based non-normalized 2D cross-correlation (but
+  they do use the real FFT and pack/unpack it properly)
+
+[I literally implemented it in terms of basic numpy operations and FFT
+first so I could understand it and compare the code to known-good
+code, then went and translated each line to the 2-5 equivalent lines
+of C.](https://github.com/osnr/template-matching-play)
 
 Key things are:
 
@@ -61,9 +93,11 @@ the kernel is really big, it's not your 3x3 or 5x5 or whatever)
 We're still maybe 50% slower than OpenCV.
 
 - use real FFT instead of complex FFT. I honestly could not figure out
-  how to do this -- the packing is so weird -- and it doesn't seem to
-  speed it up that much (you can try just stubbing it in and seeing
-  how long it takes to run even if you get garbage values)
+  how to do this -- the
+  [packing](https://stackoverflow.com/questions/28851910/packing-real-to-complex-fft-2d-using-vdsp)
+  is [so](https://stackoverflow.com/questions/13889163/choosing-real-vs-complex-2d-ffts-using-apple-accelerate-framework) weird -- and it doesn't seem to speed it up that much (you can
+  try just stubbing it in and seeing how long it takes to run even if
+  you get garbage values)
 
 - get rid of remaining memcpys?
 
